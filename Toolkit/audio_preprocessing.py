@@ -2,13 +2,16 @@ import os
 from tkinter import Tk, Label, Button, filedialog, messagebox, ttk, StringVar, Entry
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
+import noisereduce as nr
+import scipy.io.wavfile as wav
+import numpy as np
 
 # Function to select a folder
 def select_directory():
     global source_path
     source_path = filedialog.askdirectory(title="Select Source Folder")
     if source_path:
-        source_label.config(text=f"Source Folder: {source_path}")
+        source_label.config(text=f"Source Folder: .../{source_path.split('/')[-1]}")
     else:
         source_label.config(text="Source Folder: Not selected")
 
@@ -17,9 +20,9 @@ def select_destination():
     global destination_path
     destination_path = filedialog.askdirectory(title="Select Destination Folder")
     if destination_path:
-        destination_label.config(text=f"Destination: {destination_path}")
+        destination_label.config(text=f"Destination: .../{destination_path.split('/')[-1]}")
     else:
-        destination_label.config(text="Destination: Not selected")
+        destination_label.config(text="Destination: Not selected", width=35)
 
 # Function to convert audio files in a folder to WAV with progress bar
 def convert_to_wav():
@@ -109,7 +112,7 @@ def select_directory_silence():
     global source_path_silence
     source_path_silence = filedialog.askdirectory(title="Select Source Folder")
     if source_path_silence:
-        source_label_silence.config(text=f"Source Folder: {source_path_silence}")
+        source_label_silence.config(text=f"Source Folder: .../{source_path_silence.split('/')[-1]}")
     else:
         source_label_silence.config(text="Source Folder: Not selected")
 
@@ -118,9 +121,9 @@ def select_destination_silence():
     global destination_path_silence
     destination_path_silence = filedialog.askdirectory(title="Select Destination Folder")
     if destination_path_silence:
-        destination_label_silence.config(text=f"Destination: {destination_path_silence}")
+        destination_label_silence.config(text=f"Destination: .../{destination_path_silence.split('/')[-1]}")
     else:
-        destination_label_silence.config(text="Destination: Not selected")
+        destination_label_silence.config(text="Destination: Not selected", width=35)
 
 # Function to remove silence from audio files
 def remove_silence_from_files():
@@ -182,7 +185,7 @@ def select_directory_segmentation():
     global source_path_segmentation
     source_path_segmentation = filedialog.askdirectory(title="Select Source Folder")
     if source_path_segmentation:
-        source_label_segmentation.config(text=f"Source Folder: {source_path_segmentation}")
+        source_label_segmentation.config(text=f"Source Folder: .../{source_path_segmentation.split('/')[-1]}")
     else:
         source_label_segmentation.config(text="Source Folder: Not selected")
 
@@ -191,9 +194,9 @@ def select_destination_segmentation():
     global destination_path_segmentation
     destination_path_segmentation = filedialog.askdirectory(title="Select Destination Folder")
     if destination_path_segmentation:
-        destination_label_segmentation.config(text=f"Destination: {destination_path_segmentation}")
+        destination_label_segmentation.config(text=f"Destination: .../{destination_path_segmentation.split('/')[-1]}")
     else:
-        destination_label_segmentation.config(text="Destination: Not selected")
+        destination_label_segmentation.config(text="Destination: Not selected", width=35)
 
 # Function to segment audio files
 def segment_audio_files():
@@ -252,14 +255,14 @@ def select_source_directory_trimmer():
     """Select source directory for Trimmer."""
     global source_folder_trimmer
     source_folder_trimmer = filedialog.askdirectory()
-    source_label_trimmer.config(text=f"Source Folder: {source_folder_trimmer}")
+    source_label_trimmer.config(text=f"Source Folder: .../{source_folder_trimmer.split('/')[-1]}")
 
 
 def select_destination_directory_trimmer():
     """Select destination directory for Trimmer."""
     global destination_folder_trimmer
     destination_folder_trimmer = filedialog.askdirectory()
-    destination_label_trimmer.config(text=f"Destination: {destination_folder_trimmer}")
+    destination_label_trimmer.config(text=f"Destination: .../{destination_folder_trimmer.split('/')[-1]}")
 
 
 def trim_utterances():
@@ -304,6 +307,63 @@ def trim_utterances():
     messagebox.showinfo("Success", "Trimming completed successfully!")
 
 
+def select_source_directory_noise_reduction():
+    """Select source directory for Noise Reduction."""
+    global source_folder_noise_reduction
+    source_folder_noise_reduction = filedialog.askdirectory()
+    source_label_noise_reduction.config(text=f"Source Folder: .../{source_folder_noise_reduction.split('/')[-1]}")
+
+
+def select_destination_directory_noise_reduction():
+    """Select destination directory for Noise Reduction."""
+    global destination_folder_noise_reduction
+    destination_folder_noise_reduction = filedialog.askdirectory()
+    destination_label_noise_reduction.config(text=f"Destination: .../{destination_folder_noise_reduction.split('/')[-1]}")
+
+
+def reduce_noise():
+    """Reduce noise in audio files."""
+    if not source_folder_noise_reduction or not destination_folder_noise_reduction:
+        messagebox.showwarning("Warning", "Please select both source and destination folders!")
+        return
+
+    # Get all audio files (including from subfolders)
+    audio_files = []
+    for root_dir, _, files in os.walk(source_folder_noise_reduction):
+        audio_files.extend([os.path.join(root_dir, f) for f in files if f.lower().endswith(('.wav'))])
+
+    if not audio_files:
+        messagebox.showwarning("Warning", "No WAV files found in the source folder!")
+        return
+
+    progress_bar_noise_reduction["maximum"] = len(audio_files)
+    progress_bar_noise_reduction["value"] = 0
+
+    for idx, file_path in enumerate(audio_files):
+        try:
+            rate, data = wav.read(file_path)
+
+            # Handle stereo by converting to mono
+            if len(data.shape) > 1:
+                data = data.mean(axis=1).astype(np.int16)
+
+            reduced_noise = nr.reduce_noise(y=data.astype(float), sr=rate)
+
+            # Ensure subfolder structure is maintained
+            relative_path = os.path.relpath(file_path, source_folder_noise_reduction)
+            dest_path = os.path.join(destination_folder_noise_reduction, relative_path)
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+
+            wav.write(dest_path, rate, reduced_noise.astype(np.int16))
+
+            # Update progress bar
+            progress_bar_noise_reduction["value"] += 1
+            root.update_idletasks()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to process {file_path}: {e}")
+
+    messagebox.showinfo("Success", "Noise reduction completed successfully!")
+
 
 button_bg_color = "green"
 button_fg_color = "white"
@@ -338,7 +398,7 @@ source_label.grid(row=1, column=1)
 
 # Destination selection
 Button(conversion_frame, text="Select Destination Folder", command=select_destination).grid(row=destination_directory_order, column=0, pady=5, padx=10)
-destination_label = Label(conversion_frame, text="Destination: Not selected")
+destination_label = Label(conversion_frame, text="Destination: Not selected", width=35)
 destination_label.grid(row=2, column=1)
 
 # Output format input
@@ -351,7 +411,7 @@ progress_bar = ttk.Progressbar(conversion_frame, length=progress_bar_length, mod
 progress_bar.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
 
 # Convert button
-Button(conversion_frame, text="Convert", command=convert_to_format, bg=button_bg_color, fg=button_fg_color).grid(row=button_order, column=0, pady=10, columnspan=2)
+Button(conversion_frame, text="Convert", command=convert_to_format, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, pady=10, columnspan=2)
 
 # Silence removal tab
 silence_frame = ttk.Frame(notebook)
@@ -366,7 +426,7 @@ source_label_silence.grid(row=source_directory_order, column=1)
 
 # Destination selection for silence removal
 Button(silence_frame, text="Select Destination Folder", command=select_destination_silence).grid(row=destination_directory_order, column=0, pady=5, padx=10)
-destination_label_silence = Label(silence_frame, text="Destination: Not selected")
+destination_label_silence = Label(silence_frame, text="Destination: Not selected", width=35)
 destination_label_silence.grid(row=destination_directory_order, column=1)
 
 # Silence threshold entry
@@ -375,7 +435,7 @@ silence_thresh_var = StringVar(value='-50')
 Entry(silence_frame, textvariable=silence_thresh_var).grid(row=input_field_order, column=1)
 
 # Remove silence button
-Button(silence_frame, text="Remove Silence", command=remove_silence_from_files, bg=button_bg_color, fg=button_fg_color).grid(row=button_order, column=0, pady=10, columnspan=2)
+Button(silence_frame, text="Remove Silence", command=remove_silence_from_files, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, pady=10, columnspan=2)
 
 # Progress bar for silence removal
 progress_bar_silence = ttk.Progressbar(silence_frame, length=progress_bar_length, mode="determinate")
@@ -399,7 +459,7 @@ source_label_segmentation.grid(row=source_directory_order, column=1)
 
 # Destination selection for segmentation
 Button(segmentation_frame, text="Select Destination Folder", command=select_destination_segmentation).grid(row=destination_directory_order, column=0, pady=5, padx=10)
-destination_label_segmentation = Label(segmentation_frame, text="Destination: Not selected")
+destination_label_segmentation = Label(segmentation_frame, text="Destination: Not selected", width=35)
 destination_label_segmentation.grid(row=destination_directory_order, column=1)
 
 # Progress bar for segmentation
@@ -407,7 +467,7 @@ progress_bar_segmentation = ttk.Progressbar(segmentation_frame, length=progress_
 progress_bar_segmentation.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
 
 # Segment audio button
-Button(segmentation_frame, text="Segment Audio", command=segment_audio_files, bg=button_bg_color, fg=button_fg_color).grid(row=button_order, column=0, pady=10, columnspan=2)
+Button(segmentation_frame, text="Segment Audio", command=segment_audio_files, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, pady=10, columnspan=2)
 
 # Trimmer tab
 trimmer_frame = ttk.Frame(notebook)
@@ -420,7 +480,7 @@ source_label_trimmer = Label(trimmer_frame, text="Source Folder: Not selected")
 source_label_trimmer.grid(row=source_directory_order, column=1)
 
 Button(trimmer_frame, text="Select Destination Folder", command=select_destination_directory_trimmer).grid(row=destination_directory_order, column=0, pady=5, padx=10)
-destination_label_trimmer = Label(trimmer_frame, text="Destination: Not selected")
+destination_label_trimmer = Label(trimmer_frame, text="Destination: Not selected", width=35)
 destination_label_trimmer.grid(row=destination_directory_order, column=1)
 
 Label(trimmer_frame, text="Utterance Length (s):").grid(row=input_field_order, column=0)
@@ -430,7 +490,26 @@ Entry(trimmer_frame, textvariable=utterance_length_var).grid(row=input_field_ord
 progress_bar_trimmer = ttk.Progressbar(trimmer_frame, length=progress_bar_length, mode="determinate")
 progress_bar_trimmer.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
 
-Button(trimmer_frame, text="Trim", command=trim_utterances, bg=button_bg_color, fg=button_fg_color).grid(row=button_order, column=0, columnspan=2, pady=10)
+Button(trimmer_frame, text="Trim", command=trim_utterances, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, columnspan=2, pady=10)
 
+# Noise Reduction Tab
+noise_reduction_frame = ttk.Frame(notebook)
+notebook.add(noise_reduction_frame, text="Noise Reduction")
+
+Label(noise_reduction_frame, text="Noise Reduction", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
+
+Button(noise_reduction_frame, text="Select Source Folder", command=select_source_directory_noise_reduction).grid(row=source_directory_order, column=0, pady=5, padx=10)
+source_label_noise_reduction = Label(noise_reduction_frame, text="Source Folder: Not selected")
+source_label_noise_reduction.grid(row=source_directory_order, column=1)
+
+Button(noise_reduction_frame, text="Select Destination Folder", command=select_destination_directory_noise_reduction).grid(row=destination_directory_order, column=0, pady=5, padx=10)
+destination_label_noise_reduction = Label(noise_reduction_frame, text="Destination: Not selected", width=35)
+destination_label_noise_reduction.grid(row=destination_directory_order, column=1)
+Label(noise_reduction_frame, text="").grid(row=input_field_order, column=0)
+
+progress_bar_noise_reduction = ttk.Progressbar(noise_reduction_frame, length=progress_bar_length, mode="determinate")
+progress_bar_noise_reduction.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
+
+Button(noise_reduction_frame, text="Reduce Noise", command=reduce_noise, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, columnspan=2, pady=10)
 
 root.mainloop()
