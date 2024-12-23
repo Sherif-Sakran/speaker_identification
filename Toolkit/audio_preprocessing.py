@@ -247,6 +247,64 @@ def segment_audio_files():
         print("Error", f"An error occurred: {e}")
         messagebox.showerror("Error", f"An error occurred: {e}")
 
+
+def select_source_directory_trimmer():
+    """Select source directory for Trimmer."""
+    global source_folder_trimmer
+    source_folder_trimmer = filedialog.askdirectory()
+    source_label_trimmer.config(text=f"Source Folder: {source_folder_trimmer}")
+
+
+def select_destination_directory_trimmer():
+    """Select destination directory for Trimmer."""
+    global destination_folder_trimmer
+    destination_folder_trimmer = filedialog.askdirectory()
+    destination_label_trimmer.config(text=f"Destination: {destination_folder_trimmer}")
+
+
+def trim_utterances():
+    """Trim audio files to the specified length."""
+    if not source_folder_trimmer or not destination_folder_trimmer:
+        messagebox.showwarning("Warning", "Please select both source and destination folders!")
+        return
+
+    try:
+        utterance_length = float(utterance_length_var.get())
+        if utterance_length <= 0:
+            raise ValueError
+    except ValueError:
+        messagebox.showerror("Error", "Invalid utterance length! Please enter a positive number.")
+        return
+
+    # Get all audio files (including from subfolders)
+    audio_files = []
+    for root_dir, _, files in os.walk(source_folder_trimmer):
+        audio_files.extend([os.path.join(root_dir, f) for f in files if f.lower().endswith(('.mp3', '.wav', '.ogg', '.flac'))])
+
+    progress_bar_trimmer["maximum"] = len(audio_files)
+    progress_bar_trimmer["value"] = 0
+
+    for idx, file_path in enumerate(audio_files):
+        try:
+            audio = AudioSegment.from_file(file_path)
+            trimmed_audio = audio[:utterance_length * 1000]  # Convert seconds to milliseconds
+
+            # Ensure subfolder structure is maintained
+            relative_path = os.path.relpath(file_path, source_folder_trimmer)
+            dest_path = os.path.join(destination_folder_trimmer, relative_path)
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+
+            # Save the trimmed audio
+            trimmed_audio.export(dest_path, format=os.path.splitext(dest_path)[1][1:])
+            progress_bar_trimmer["value"] += 1
+            root.update_idletasks()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to trim {file_path}: {e}")
+
+    messagebox.showinfo("Success", "Trimming completed successfully!")
+
+
+
 button_bg_color = "green"
 button_fg_color = "white"
 progress_bar_length = 500
@@ -350,5 +408,29 @@ progress_bar_segmentation.grid(row=progress_bar_order, column=0, columnspan=2, p
 
 # Segment audio button
 Button(segmentation_frame, text="Segment Audio", command=segment_audio_files, bg=button_bg_color, fg=button_fg_color).grid(row=button_order, column=0, pady=10, columnspan=2)
+
+# Trimmer tab
+trimmer_frame = ttk.Frame(notebook)
+notebook.add(trimmer_frame, text="Trimmer")
+
+Label(trimmer_frame, text="Utterance Trimmer", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
+
+Button(trimmer_frame, text="Select Source Folder", command=select_source_directory_trimmer).grid(row=source_directory_order, column=0, pady=5, padx=10)
+source_label_trimmer = Label(trimmer_frame, text="Source Folder: Not selected")
+source_label_trimmer.grid(row=source_directory_order, column=1)
+
+Button(trimmer_frame, text="Select Destination Folder", command=select_destination_directory_trimmer).grid(row=destination_directory_order, column=0, pady=5, padx=10)
+destination_label_trimmer = Label(trimmer_frame, text="Destination: Not selected")
+destination_label_trimmer.grid(row=destination_directory_order, column=1)
+
+Label(trimmer_frame, text="Utterance Length (s):").grid(row=input_field_order, column=0)
+utterance_length_var = StringVar(value="3")
+Entry(trimmer_frame, textvariable=utterance_length_var).grid(row=input_field_order, column=1)
+
+progress_bar_trimmer = ttk.Progressbar(trimmer_frame, length=progress_bar_length, mode="determinate")
+progress_bar_trimmer.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
+
+Button(trimmer_frame, text="Trim", command=trim_utterances, bg=button_bg_color, fg=button_fg_color).grid(row=button_order, column=0, columnspan=2, pady=10)
+
 
 root.mainloop()
