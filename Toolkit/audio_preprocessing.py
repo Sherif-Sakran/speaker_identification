@@ -60,7 +60,51 @@ def convert_to_wav():
         messagebox.showerror("Error", f"An error occurred: {e}")
 
 
-# Function to select a folder
+def convert_to_format():
+    """Convert audio files to the selected format."""
+    if not source_path:
+        messagebox.showerror("Error", "Please select a source folder.")
+        return
+    if not destination_path:
+        messagebox.showerror("Error", "Please select a destination folder.")
+        return
+    
+    # Get the selected output format
+    output_format = output_format_var.get().strip()
+    if not output_format:
+        output_format = "wav"  # Default format
+
+    try:
+        progress_bar["value"] = 0  # Reset progress bar
+        files = []
+        for root_dir, _, filenames in os.walk(source_path):  # Recursive file search
+            files.extend(os.path.join(root_dir, f) for f in filenames if not f.lower().endswith(('.mp3', '.wav', '.ogg', '.flac')))
+        total_files = len(files)
+
+        if total_files == 0:
+            messagebox.showerror("Error", "No audio files to convert.")
+            return
+
+        # Convert each file and update progress
+        for i, file_path in enumerate(files):
+            audio = AudioSegment.from_file(file_path)
+            rel_path = os.path.relpath(file_path, source_path)
+            output_path = os.path.join(destination_path, os.path.splitext(rel_path)[0] + "." + output_format)
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)  # Ensure subdirectory structure
+            audio.export(output_path, format=output_format)
+
+            # Update progress bar
+            progress = (i + 1) / total_files * 100
+            progress_bar["value"] = progress
+            root.update_idletasks()  # Update the GUI
+
+        messagebox.showinfo("Success", "Folder conversion completed!")
+    except Exception as e:
+        print("Error", f"An error occurred: {e}")
+        messagebox.showerror("Error", f"An error occurred: {e}")
+
+
+# Function to select a folder for silence removal
 def select_directory_silence():
     global source_path_silence
     source_path_silence = filedialog.askdirectory(title="Select Source Folder")
@@ -69,7 +113,7 @@ def select_directory_silence():
     else:
         source_label_silence.config(text="Source Folder: Not selected")
 
-# Function to select the destination folder
+# Function to select the destination folder for silence removal
 def select_destination_silence():
     global destination_path_silence
     destination_path_silence = filedialog.askdirectory(title="Select Destination Folder")
@@ -77,7 +121,6 @@ def select_destination_silence():
         destination_label_silence.config(text=f"Destination: {destination_path_silence}")
     else:
         destination_label_silence.config(text="Destination: Not selected")
-
 
 # Function to remove silence from audio files
 def remove_silence_from_files():
@@ -91,7 +134,7 @@ def remove_silence_from_files():
     try:
         silence_threshold = silence_thresh_var.get()
         if not silence_threshold.strip():
-            messagebox.showerror("Error", "Please enter a valid silence threshold (e.g., -40).")
+            messagebox.showerror("Error", "Please enter a valid silence threshold (e.g., -50).")
             return
 
         silence_threshold = int(silence_threshold)
@@ -134,6 +177,87 @@ def remove_silence_from_files():
         print("Error", f"An error occurred: {e}")
         messagebox.showerror("Error", f"An error occurred: {e}")
 
+# Function to select a folder for segmentation
+def select_directory_segmentation():
+    global source_path_segmentation
+    source_path_segmentation = filedialog.askdirectory(title="Select Source Folder")
+    if source_path_segmentation:
+        source_label_segmentation.config(text=f"Source Folder: {source_path_segmentation}")
+    else:
+        source_label_segmentation.config(text="Source Folder: Not selected")
+
+# Function to select the destination folder for segmentation
+def select_destination_segmentation():
+    global destination_path_segmentation
+    destination_path_segmentation = filedialog.askdirectory(title="Select Destination Folder")
+    if destination_path_segmentation:
+        destination_label_segmentation.config(text=f"Destination: {destination_path_segmentation}")
+    else:
+        destination_label_segmentation.config(text="Destination: Not selected")
+
+# Function to segment audio files
+def segment_audio_files():
+    if not source_path_segmentation:
+        messagebox.showerror("Error", "Please select a source folder.")
+        return
+    if not destination_path_segmentation:
+        messagebox.showerror("Error", "Please select a destination folder.")
+        return
+
+    try:
+        # Get utterance length from entry
+        utterance_length = int(utterance_length_var.get())
+        if utterance_length <= 0:
+            messagebox.showerror("Error", "Please enter a valid utterance length.")
+            return
+
+        progress_bar_segmentation["value"] = 0  # Reset progress bar
+        files = []
+        for root_dir, _, filenames in os.walk(source_path_segmentation):  # Recursive file search
+            files.extend(os.path.join(root_dir, f) for f in filenames if f.lower().endswith((".wav", ".mp3", ".flac")))
+        total_files = len(files)
+
+        if total_files == 0:
+            messagebox.showerror("Error", "No audio files to segment.")
+            return
+
+        # Process each file and segment it
+        for i, file_path in enumerate(files):
+            audio = AudioSegment.from_file(file_path)
+            total_duration = len(audio) / 1000  # Duration in seconds
+
+            # Create a folder for the segments
+            rel_path = os.path.relpath(file_path, source_path_segmentation)
+            file_name = os.path.splitext(rel_path)[0]
+            output_folder = os.path.join(destination_path_segmentation, file_name)
+            os.makedirs(output_folder, exist_ok=True)
+
+            # Segment the audio
+            for j in range(0, int(total_duration), utterance_length):
+                segment = audio[j * 1000: (j + utterance_length) * 1000]  # Convert to milliseconds
+                segment.export(os.path.join(output_folder, f"{file_name}_{j // utterance_length + 1}.wav"), format="wav")
+
+            # Update progress bar
+            progress = (i + 1) / total_files * 100
+            progress_bar_segmentation["value"] = progress
+            root.update_idletasks()  # Update the GUI
+
+        messagebox.showinfo("Success", "Segmentation completed!")
+    except Exception as e:
+        print("Error", f"An error occurred: {e}")
+        messagebox.showerror("Error", f"An error occurred: {e}")
+
+button_bg_color = "green"
+button_fg_color = "white"
+progress_bar_length = 500
+
+tab_title_order = 0
+source_directory_order = 1
+destination_directory_order = 2
+input_field_order = 3
+progress_bar_order = 4
+button_order = 5
+
 # Initialize main window
 root = Tk()
 root.title("Audio Preprocessing")
@@ -146,52 +270,85 @@ notebook.pack(expand=True, fill="both")
 conversion_frame = ttk.Frame(notebook)
 notebook.add(conversion_frame, text="Conversion")
 
-Label(conversion_frame, text="Audio Preprocessing - Conversion", font=("Arial", 16)).grid(row=0, column=0, columnspan=2, pady=10)
 
-# Source selection buttons for conversion
-Button(conversion_frame, text="Select Source Folder", command=select_directory).grid(row=1, column=0, pady=5, padx=10)
-source_label = Label(conversion_frame, text="Source Folder: Not selected", anchor="w")
-source_label.grid(row=1, column=1, pady=5, sticky="w")
+Label(conversion_frame, text="Audio Preprocessing - Conversion", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
 
-# Destination selection for conversion
-Button(conversion_frame, text="Select Destination Folder", command=select_destination).grid(row=2, column=0, pady=5, padx=10)
-destination_label = Label(conversion_frame, text="Destination: Not selected", anchor="w")
-destination_label.grid(row=2, column=1, pady=5, sticky="w")
+# Source selection
+Button(conversion_frame, text="Select Source Folder", command=select_directory).grid(row=source_directory_order, column=0, pady=5, padx=10)
+source_label = Label(conversion_frame, text="Source Folder: Not selected")
+source_label.grid(row=1, column=1)
 
-# Progress bar for conversion
-progress_bar = ttk.Progressbar(conversion_frame, orient="horizontal", length=300, mode="determinate")
-progress_bar.grid(row=3, column=0, columnspan=2, pady=10, padx=10)
+# Destination selection
+Button(conversion_frame, text="Select Destination Folder", command=select_destination).grid(row=destination_directory_order, column=0, pady=5, padx=10)
+destination_label = Label(conversion_frame, text="Destination: Not selected")
+destination_label.grid(row=2, column=1)
+
+# Output format input
+Label(conversion_frame, text="Output Format:").grid(row=input_field_order, column=0)
+output_format_var = StringVar(value="wav")
+Entry(conversion_frame, textvariable=output_format_var).grid(row=input_field_order, column=1)
+
+# Progress bar
+progress_bar = ttk.Progressbar(conversion_frame, length=progress_bar_length, mode="determinate")
+progress_bar.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
 
 # Convert button
-Button(conversion_frame, text="Convert to WAV", command=convert_to_wav, bg="green", fg="white").grid(row=4, column=0, columnspan=2, pady=10)
+Button(conversion_frame, text="Convert", command=convert_to_format, bg=button_bg_color, fg=button_fg_color).grid(row=button_order, column=0, pady=10, columnspan=2)
 
-# Silence Removal tab
-silence_removal_frame = ttk.Frame(notebook)
-notebook.add(silence_removal_frame, text="Silence Removal")
+# Silence removal tab
+silence_frame = ttk.Frame(notebook)
+notebook.add(silence_frame, text="Silence Removal")
 
-Label(silence_removal_frame, text="Audio Preprocessing - Silence Removal", font=("Arial", 16)).grid(row=0, column=0, columnspan=2, pady=10)
+Label(silence_frame, text="Silence Removal", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
 
-# Source selection buttons for silence removal
-Button(silence_removal_frame, text="Select Source Folder", command=select_directory_silence).grid(row=1, column=0, pady=5, padx=10)
-source_label_silence = Label(silence_removal_frame, text="Source Folder: Not selected", anchor="w")
-source_label_silence.grid(row=1, column=1, pady=5, sticky="w")
+# Source selection for silence removal
+Button(silence_frame, text="Select Source Folder", command=select_directory_silence).grid(row=source_directory_order, column=0, pady=5, padx=10)
+source_label_silence = Label(silence_frame, text="Source Folder: Not selected")
+source_label_silence.grid(row=source_directory_order, column=1)
 
 # Destination selection for silence removal
-Button(silence_removal_frame, text="Select Destination Folder", command=select_destination_silence).grid(row=2, column=0, pady=5, padx=10)
-destination_label_silence = Label(silence_removal_frame, text="Destination: Not selected", anchor="w")
-destination_label_silence.grid(row=2, column=1, pady=5, sticky="w")
+Button(silence_frame, text="Select Destination Folder", command=select_destination_silence).grid(row=destination_directory_order, column=0, pady=5, padx=10)
+destination_label_silence = Label(silence_frame, text="Destination: Not selected")
+destination_label_silence.grid(row=destination_directory_order, column=1)
 
-# Silence threshold input
-silence_thresh_var = StringVar(value="-50")  # Default value
-Label(silence_removal_frame, text="Silence Threshold (dB):").grid(row=3, column=0, pady=5, padx=10)
-silence_thresh_entry = Entry(silence_removal_frame, textvariable=silence_thresh_var)
-silence_thresh_entry.grid(row=3, column=1, pady=5, sticky="w")
+# Silence threshold entry
+Label(silence_frame, text="Silence Threshold:").grid(row=input_field_order, column=0)
+silence_thresh_var = StringVar(value='-50')
+Entry(silence_frame, textvariable=silence_thresh_var).grid(row=input_field_order, column=1)
+
+# Remove silence button
+Button(silence_frame, text="Remove Silence", command=remove_silence_from_files, bg=button_bg_color, fg=button_fg_color).grid(row=button_order, column=0, pady=10, columnspan=2)
 
 # Progress bar for silence removal
-progress_bar_silence = ttk.Progressbar(silence_removal_frame, orient="horizontal", length=300, mode="determinate")
-progress_bar_silence.grid(row=4, column=0, columnspan=2, pady=10, padx=10)
+progress_bar_silence = ttk.Progressbar(silence_frame, length=progress_bar_length, mode="determinate")
+progress_bar_silence.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
 
-# Remove Silence button
-Button(silence_removal_frame, text="Remove Silence", command=remove_silence_from_files, bg="green", fg="white").grid(row=5, column=0, columnspan=2, pady=10)
+# Segmentation tab
+segmentation_frame = ttk.Frame(notebook)
+notebook.add(segmentation_frame, text="Segmentation")
+
+Label(segmentation_frame, text="Audio Segmentation", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
+
+# Utterance length entry
+Label(segmentation_frame, text="Utterance Length (s):").grid(row=input_field_order, column=0)
+utterance_length_var = StringVar(value='3')
+Entry(segmentation_frame, textvariable=utterance_length_var).grid(row=input_field_order, column=1)
+
+# Source selection for segmentation
+Button(segmentation_frame, text="Select Source Folder", command=select_directory_segmentation).grid(row=source_directory_order, column=0, pady=5, padx=10)
+source_label_segmentation = Label(segmentation_frame, text="Source Folder: Not selected")
+source_label_segmentation.grid(row=source_directory_order, column=1)
+
+# Destination selection for segmentation
+Button(segmentation_frame, text="Select Destination Folder", command=select_destination_segmentation).grid(row=destination_directory_order, column=0, pady=5, padx=10)
+destination_label_segmentation = Label(segmentation_frame, text="Destination: Not selected")
+destination_label_segmentation.grid(row=destination_directory_order, column=1)
+
+# Progress bar for segmentation
+progress_bar_segmentation = ttk.Progressbar(segmentation_frame, length=progress_bar_length, mode="determinate")
+progress_bar_segmentation.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
+
+# Segment audio button
+Button(segmentation_frame, text="Segment Audio", command=segment_audio_files, bg=button_bg_color, fg=button_fg_color).grid(row=button_order, column=0, pady=10, columnspan=2)
 
 root.mainloop()
