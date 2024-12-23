@@ -364,6 +364,62 @@ def reduce_noise():
 
     messagebox.showinfo("Success", "Noise reduction completed successfully!")
 
+def select_source_directory_audio_normalization():
+    """Select source directory for Audio Normalization."""
+    global source_folder_audio_normalization
+    source_folder_audio_normalization = filedialog.askdirectory()
+    source_label_audio_normalization.config(text=f"Source Folder: .../{source_folder_audio_normalization.split('/')[-1]}")
+
+
+def select_destination_directory_audio_normalization():
+    """Select destination directory for Audio Normalization."""
+    global destination_folder_audio_normalization
+    destination_folder_audio_normalization = filedialog.askdirectory()
+    destination_label_audio_normalization.config(text=f"Destination: .../{destination_folder_audio_normalization.split('/')[-1]}")
+
+
+def normalize_audio_files():
+    """Normalize volume of audio files."""
+    if not source_folder_audio_normalization or not destination_folder_audio_normalization:
+        messagebox.showwarning("Warning", "Please select both source and destination folders!")
+        return
+
+    # Get all audio files (including from subfolders)
+    audio_files = []
+    for root_dir, _, files in os.walk(source_folder_audio_normalization):
+        audio_files.extend([os.path.join(root_dir, f) for f in files if f.lower().endswith(('.wav'))])
+
+    if not audio_files:
+        messagebox.showwarning("Warning", "No WAV files found in the source folder!")
+        return
+
+    progress_bar_audio_normalization["maximum"] = len(audio_files)
+    progress_bar_audio_normalization["value"] = 0
+
+    for idx, file_path in enumerate(audio_files):
+        try:
+            # Load audio file
+            audio = AudioSegment.from_file(file_path)
+
+            # Normalize audio
+            normalized_audio = audio.normalize()
+
+            # Ensure subfolder structure is maintained
+            relative_path = os.path.relpath(file_path, source_folder_audio_normalization)
+            dest_path = os.path.join(destination_folder_audio_normalization, relative_path)
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+
+            # Save normalized audio
+            normalized_audio.export(dest_path, format="wav")
+
+            # Update progress bar
+            progress_bar_audio_normalization["value"] += 1
+            root.update_idletasks()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to process {file_path}: {e}")
+
+    messagebox.showinfo("Success", "Audio normalization completed successfully!")
+
 
 button_bg_color = "green"
 button_fg_color = "white"
@@ -389,7 +445,7 @@ conversion_frame = ttk.Frame(notebook)
 notebook.add(conversion_frame, text="Conversion")
 
 
-Label(conversion_frame, text="Audio Preprocessing - Conversion", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
+Label(conversion_frame, text="Format Conversion", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
 
 # Source selection
 Button(conversion_frame, text="Select Source Folder", command=select_directory).grid(row=source_directory_order, column=0, pady=5, padx=10)
@@ -511,5 +567,25 @@ progress_bar_noise_reduction = ttk.Progressbar(noise_reduction_frame, length=pro
 progress_bar_noise_reduction.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
 
 Button(noise_reduction_frame, text="Reduce Noise", command=reduce_noise, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, columnspan=2, pady=10)
+
+# Audio Normalization Tab
+audio_normalization_frame = ttk.Frame(notebook)
+notebook.add(audio_normalization_frame, text="Audio Normalization")
+
+Label(audio_normalization_frame, text="Audio Normalization", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
+
+Button(audio_normalization_frame, text="Select Source Folder", command=select_source_directory_audio_normalization).grid(row=source_directory_order, column=0, pady=5, padx=10)
+source_label_audio_normalization = Label(audio_normalization_frame, text="Source Folder: Not selected", width=35)
+source_label_audio_normalization.grid(row=source_directory_order, column=1)
+
+Button(audio_normalization_frame, text="Select Destination Folder", command=select_destination_directory_audio_normalization).grid(row=destination_directory_order, column=0, pady=5, padx=10)
+destination_label_audio_normalization = Label(audio_normalization_frame, text="Destination: Not selected", width=35)
+destination_label_audio_normalization.grid(row=destination_directory_order, column=1)
+Label(audio_normalization_frame, text="").grid(row=input_field_order, column=0)
+
+progress_bar_audio_normalization = ttk.Progressbar(audio_normalization_frame, length=progress_bar_length, mode="determinate")
+progress_bar_audio_normalization.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
+
+Button(audio_normalization_frame, text="Normalize Audio", command=normalize_audio_files, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, columnspan=2, pady=10)
 
 root.mainloop()
