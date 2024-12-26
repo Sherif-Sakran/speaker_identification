@@ -443,7 +443,7 @@ def create_modern_label(parent, text, is_header=False):
 
 # Initialize main window
 root = tk.Tk()
-root.title("Audio Preprocessing Tool")
+root.title("Audio Processing Toolkit")
 root.geometry(f"{ModernTheme.WINDOW_WIDTH}x{ModernTheme.WINDOW_HEIGHT}")
 root.configure(bg=ModernTheme.SECONDARY_COLOR)
 
