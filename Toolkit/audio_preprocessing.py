@@ -1,10 +1,13 @@
 import os
+import tkinter as tk
+from tkinter import font as tkfont
 from tkinter import Tk, Label, Button, filedialog, messagebox, ttk, StringVar, Entry
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 import noisereduce as nr
 import scipy.io.wavfile as wav
 import numpy as np
+
 
 # Function to select a folder
 def select_directory():
@@ -24,45 +27,7 @@ def select_destination():
     else:
         destination_label.config(text="Destination: Not selected", width=35)
 
-# Function to convert audio files in a folder to WAV with progress bar
-def convert_to_wav():
-    if not source_path:
-        messagebox.showerror("Error", "Please select a source folder.")
-        return
-    if not destination_path:
-        messagebox.showerror("Error", "Please select a destination folder.")
-        return
-
-    try:
-        progress_bar["value"] = 0  # Reset progress bar
-        files = []
-        for root_dir, _, filenames in os.walk(source_path):  # Recursive file search
-            files.extend(os.path.join(root_dir, f) for f in filenames if not f.lower().endswith(".wav"))
-        total_files = len(files)
-
-        if total_files == 0:
-            messagebox.showerror("Error", "No audio files to convert.")
-            return
-
-        # Convert each file and update progress
-        for i, file_path in enumerate(files):
-            audio = AudioSegment.from_file(file_path)
-            rel_path = os.path.relpath(file_path, source_path)
-            output_path = os.path.join(destination_path, os.path.splitext(rel_path)[0] + ".wav")
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)  # Ensure subdirectory structure
-            audio.export(output_path, format="wav")
-
-            # Update progress bar
-            progress = (i + 1) / total_files * 100
-            progress_bar["value"] = progress
-            root.update_idletasks()  # Update the GUI
-
-        messagebox.showinfo("Success", "Folder conversion completed!")
-    except Exception as e:
-        print("Error", f"An error occurred: {e}")
-        messagebox.showerror("Error", f"An error occurred: {e}")
-
-
+# Function to convert audio files to the selected format
 def convert_to_format():
     """Convert audio files to the selected format."""
     if not source_path:
@@ -234,7 +199,6 @@ def segment_audio_files():
             file_name = os.path.splitext(rel_path)[0]
             output_folder = os.path.join(destination_path_segmentation, file_name)
             os.makedirs(output_folder, exist_ok=True)
-
             # Segment the audio
             for j in range(0, int(total_duration), utterance_length):
                 segment = audio[j * 1000: (j + utterance_length) * 1000]  # Convert to milliseconds
@@ -272,7 +236,7 @@ def trim_utterances():
         return
 
     try:
-        utterance_length = float(utterance_length_var.get())
+        utterance_length = float(utterance_length_var_trim.get())
         if utterance_length <= 0:
             raise ValueError
     except ValueError:
@@ -420,172 +384,238 @@ def normalize_audio_files():
 
     messagebox.showinfo("Success", "Audio normalization completed successfully!")
 
+class ModernTheme:
+    # Color scheme
+    PRIMARY_COLOR = "#2196F3"  # Blue
+    SECONDARY_COLOR = "#f5f5f5"  # Light gray
+    TEXT_COLOR = "#212121"  # Dark gray
+    ACCENT_COLOR = "#1976D2"  # Darker blue
+    SUCCESS_COLOR = "#4CAF50"  # Green
+    
+    # Dimensions
+    WINDOW_WIDTH = 800
+    WINDOW_HEIGHT = 600
+    BUTTON_WIDTH = 20
+    BUTTON_HEIGHT = 2
+    PADDING = 10
 
-button_bg_color = "green"
-button_fg_color = "white"
-progress_bar_length = 500
+def setup_styles():
+    style = ttk.Style()
+    style.configure("TNotebook", background=ModernTheme.SECONDARY_COLOR)
+    style.configure("TNotebook.Tab", padding=[10, 5], font=('Arial', 10))
+    style.configure("TFrame", background=ModernTheme.SECONDARY_COLOR)
+    style.configure("Action.TButton",
+                   padding=5,
+                   font=('Arial', 10, 'bold'),
+                   background=ModernTheme.PRIMARY_COLOR)
+    style.configure("TProgressbar",
+                   thickness=20,
+                   background=ModernTheme.PRIMARY_COLOR)
 
-tab_title_order = 0
-source_directory_order = 1
-destination_directory_order = 2
-input_field_order = 3
-progress_bar_order = 4
-button_order = 5
+def create_modern_button(parent, text, command):
+    button = tk.Button(parent,
+                      text=text,
+                      command=command,
+                      bg=ModernTheme.PRIMARY_COLOR,
+                      fg="white",
+                      font=('Arial', 10, 'bold'),
+                      relief=tk.FLAT,
+                      width=ModernTheme.BUTTON_WIDTH,
+                      height=ModernTheme.BUTTON_HEIGHT,
+                      cursor="hand2")
+    button.bind('<Enter>', lambda e: e.widget.configure(bg=ModernTheme.ACCENT_COLOR))
+    button.bind('<Leave>', lambda e: e.widget.configure(bg=ModernTheme.PRIMARY_COLOR))
+    return button
+
+def create_modern_label(parent, text, is_header=False):
+    if is_header:
+        return tk.Label(parent,
+                       text=text,
+                       font=('Arial', 16, 'bold'),
+                       fg=ModernTheme.TEXT_COLOR,
+                       bg=ModernTheme.SECONDARY_COLOR,
+                       pady=10)
+    return tk.Label(parent,
+                   text=text,
+                   font=('Arial', 10),
+                   fg=ModernTheme.TEXT_COLOR,
+                   bg=ModernTheme.SECONDARY_COLOR)
 
 # Initialize main window
-root = Tk()
-root.title("Audio Preprocessing")
+root = tk.Tk()
+root.title("Audio Preprocessing Tool")
+root.geometry(f"{ModernTheme.WINDOW_WIDTH}x{ModernTheme.WINDOW_HEIGHT}")
+root.configure(bg=ModernTheme.SECONDARY_COLOR)
+
+# Set up modern styling
+setup_styles()
 
 # Create notebook for tabs
 notebook = ttk.Notebook(root)
-notebook.pack(expand=True, fill="both")
+notebook.pack(expand=True, fill="both", padx=ModernTheme.PADDING, pady=ModernTheme.PADDING)
+
+# Base frame class
+class BaseFrame(ttk.Frame):
+    def __init__(self, parent, title):
+        super().__init__(parent)
+        self.configure(style="TFrame")
+        self.columnconfigure(1, weight=1)
+        
+        # Header
+        header = create_modern_label(self, title, is_header=True)
+        header.grid(row=0, column=0, columnspan=2, pady=(20, 30), padx=20)
+
 
 # Conversion tab
-conversion_frame = ttk.Frame(notebook)
+conversion_frame = BaseFrame(notebook, "Format Conversion")
 notebook.add(conversion_frame, text="Conversion")
 
+create_modern_button(conversion_frame, "Select Source Folder", select_directory).grid(
+    row=1, column=0, pady=10, padx=20, sticky="w")
+source_label = create_modern_label(conversion_frame, "Source Folder: Not selected")
+source_label.grid(row=1, column=1, pady=10, padx=20, sticky="w")
 
-Label(conversion_frame, text="Format Conversion", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
+create_modern_button(conversion_frame, "Select Destination Folder", select_destination).grid(
+    row=2, column=0, pady=10, padx=20, sticky="w")
+destination_label = create_modern_label(conversion_frame, "Destination: Not selected")
+destination_label.grid(row=2, column=1, pady=10, padx=20, sticky="w")
 
-# Source selection
-Button(conversion_frame, text="Select Source Folder", command=select_directory).grid(row=source_directory_order, column=0, pady=5, padx=10)
-source_label = Label(conversion_frame, text="Source Folder: Not selected")
-source_label.grid(row=1, column=1)
+format_frame = ttk.Frame(conversion_frame, style="TFrame")
+format_frame.grid(row=3, column=0, columnspan=2, pady=10, padx=20, sticky="ew")
+create_modern_label(format_frame, "Output Format:").pack(side=tk.LEFT, padx=(0, 10))
+output_format_var = tk.StringVar(value="wav")
+ttk.Entry(format_frame, textvariable=output_format_var, width=10).pack(side=tk.LEFT)
 
-# Destination selection
-Button(conversion_frame, text="Select Destination Folder", command=select_destination).grid(row=destination_directory_order, column=0, pady=5, padx=10)
-destination_label = Label(conversion_frame, text="Destination: Not selected", width=35)
-destination_label.grid(row=2, column=1)
+progress_bar = ttk.Progressbar(conversion_frame, length=600, mode="determinate", style="TProgressbar")
+progress_bar.grid(row=4, column=0, columnspan=2, pady=(20, 10), padx=20, sticky="ew")
 
-# Output format input
-Label(conversion_frame, text="Output Format:").grid(row=input_field_order, column=0)
-output_format_var = StringVar(value="wav")
-Entry(conversion_frame, textvariable=output_format_var).grid(row=input_field_order, column=1)
-
-# Progress bar
-progress_bar = ttk.Progressbar(conversion_frame, length=progress_bar_length, mode="determinate")
-progress_bar.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
-
-# Convert button
-Button(conversion_frame, text="Convert", command=convert_to_format, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, pady=10, columnspan=2)
+create_modern_button(conversion_frame, "Convert", convert_to_format).grid(
+    row=5, column=0, columnspan=2, pady=20)
 
 # Silence removal tab
-silence_frame = ttk.Frame(notebook)
+silence_frame = BaseFrame(notebook, "Silence Removal")
 notebook.add(silence_frame, text="Silence Removal")
 
-Label(silence_frame, text="Silence Removal", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
+create_modern_button(silence_frame, "Select Source Folder", select_directory_silence).grid(
+    row=1, column=0, pady=10, padx=20, sticky="w")
+source_label_silence = create_modern_label(silence_frame, "Source Folder: Not selected")
+source_label_silence.grid(row=1, column=1, pady=10, padx=20, sticky="w")
 
-# Source selection for silence removal
-Button(silence_frame, text="Select Source Folder", command=select_directory_silence).grid(row=source_directory_order, column=0, pady=5, padx=10)
-source_label_silence = Label(silence_frame, text="Source Folder: Not selected")
-source_label_silence.grid(row=source_directory_order, column=1)
+create_modern_button(silence_frame, "Select Destination Folder", select_destination_silence).grid(
+    row=2, column=0, pady=10, padx=20, sticky="w")
+destination_label_silence = create_modern_label(silence_frame, "Destination: Not selected")
+destination_label_silence.grid(row=2, column=1, pady=10, padx=20, sticky="w")
 
-# Destination selection for silence removal
-Button(silence_frame, text="Select Destination Folder", command=select_destination_silence).grid(row=destination_directory_order, column=0, pady=5, padx=10)
-destination_label_silence = Label(silence_frame, text="Destination: Not selected", width=35)
-destination_label_silence.grid(row=destination_directory_order, column=1)
+threshold_frame = ttk.Frame(silence_frame, style="TFrame")
+threshold_frame.grid(row=3, column=0, columnspan=2, pady=10, padx=20, sticky="ew")
+create_modern_label(threshold_frame, "Silence Threshold:").pack(side=tk.LEFT, padx=(0, 10))
+silence_thresh_var = tk.StringVar(value='-50')
+ttk.Entry(threshold_frame, textvariable=silence_thresh_var, width=10).pack(side=tk.LEFT)
 
-# Silence threshold entry
-Label(silence_frame, text="Silence Threshold:").grid(row=input_field_order, column=0)
-silence_thresh_var = StringVar(value='-50')
-Entry(silence_frame, textvariable=silence_thresh_var).grid(row=input_field_order, column=1)
+progress_bar_silence = ttk.Progressbar(silence_frame, length=600, mode="determinate", style="TProgressbar")
+progress_bar_silence.grid(row=4, column=0, columnspan=2, pady=(20, 10), padx=20, sticky="ew")
 
-# Remove silence button
-Button(silence_frame, text="Remove Silence", command=remove_silence_from_files, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, pady=10, columnspan=2)
-
-# Progress bar for silence removal
-progress_bar_silence = ttk.Progressbar(silence_frame, length=progress_bar_length, mode="determinate")
-progress_bar_silence.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
+create_modern_button(silence_frame, "Remove Silence", remove_silence_from_files).grid(
+    row=5, column=0, columnspan=2, pady=20)
 
 # Segmentation tab
-segmentation_frame = ttk.Frame(notebook)
+segmentation_frame = BaseFrame(notebook, "Audio Segmentation")
 notebook.add(segmentation_frame, text="Segmentation")
 
-Label(segmentation_frame, text="Audio Segmentation", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
+create_modern_button(segmentation_frame, "Select Source Folder", select_directory_segmentation).grid(
+    row=1, column=0, pady=10, padx=20, sticky="w")
+source_label_segmentation = create_modern_label(segmentation_frame, "Source Folder: Not selected")
+source_label_segmentation.grid(row=1, column=1, pady=10, padx=20, sticky="w")
 
-# Utterance length entry
-Label(segmentation_frame, text="Utterance Length (s):").grid(row=input_field_order, column=0)
-utterance_length_var = StringVar(value='3')
-Entry(segmentation_frame, textvariable=utterance_length_var).grid(row=input_field_order, column=1)
+create_modern_button(segmentation_frame, "Select Destination Folder", select_destination_segmentation).grid(
+    row=2, column=0, pady=10, padx=20, sticky="w")
+destination_label_segmentation = create_modern_label(segmentation_frame, "Destination: Not selected")
+destination_label_segmentation.grid(row=2, column=1, pady=10, padx=20, sticky="w")
 
-# Source selection for segmentation
-Button(segmentation_frame, text="Select Source Folder", command=select_directory_segmentation).grid(row=source_directory_order, column=0, pady=5, padx=10)
-source_label_segmentation = Label(segmentation_frame, text="Source Folder: Not selected")
-source_label_segmentation.grid(row=source_directory_order, column=1)
+length_frame = ttk.Frame(segmentation_frame, style="TFrame")
+length_frame.grid(row=3, column=0, columnspan=2, pady=10, padx=20, sticky="ew")
+create_modern_label(length_frame, "Utterance Length (s):").pack(side=tk.LEFT, padx=(0, 10))
+utterance_length_var = tk.StringVar(value='3')
+ttk.Entry(length_frame, textvariable=utterance_length_var, width=10).pack(side=tk.LEFT)
 
-# Destination selection for segmentation
-Button(segmentation_frame, text="Select Destination Folder", command=select_destination_segmentation).grid(row=destination_directory_order, column=0, pady=5, padx=10)
-destination_label_segmentation = Label(segmentation_frame, text="Destination: Not selected", width=35)
-destination_label_segmentation.grid(row=destination_directory_order, column=1)
+progress_bar_segmentation = ttk.Progressbar(segmentation_frame, length=600, mode="determinate", style="TProgressbar")
+progress_bar_segmentation.grid(row=4, column=0, columnspan=2, pady=(20, 10), padx=20, sticky="ew")
 
-# Progress bar for segmentation
-progress_bar_segmentation = ttk.Progressbar(segmentation_frame, length=progress_bar_length, mode="determinate")
-progress_bar_segmentation.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
-
-# Segment audio button
-Button(segmentation_frame, text="Segment Audio", command=segment_audio_files, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, pady=10, columnspan=2)
+create_modern_button(segmentation_frame, "Segment Audio", segment_audio_files).grid(
+    row=5, column=0, columnspan=2, pady=20)
 
 # Trimmer tab
-trimmer_frame = ttk.Frame(notebook)
+trimmer_frame = BaseFrame(notebook, "Utterance Trimmer")
 notebook.add(trimmer_frame, text="Trimmer")
 
-Label(trimmer_frame, text="Utterance Trimmer", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
+create_modern_button(trimmer_frame, "Select Source Folder", select_source_directory_trimmer).grid(
+    row=1, column=0, pady=10, padx=20, sticky="w")
+source_label_trimmer = create_modern_label(trimmer_frame, "Source Folder: Not selected")
+source_label_trimmer.grid(row=1, column=1, pady=10, padx=20, sticky="w")
 
-Button(trimmer_frame, text="Select Source Folder", command=select_source_directory_trimmer).grid(row=source_directory_order, column=0, pady=5, padx=10)
-source_label_trimmer = Label(trimmer_frame, text="Source Folder: Not selected")
-source_label_trimmer.grid(row=source_directory_order, column=1)
+create_modern_button(trimmer_frame, "Select Destination Folder", select_destination_directory_trimmer).grid(
+    row=2, column=0, pady=10, padx=20, sticky="w")
+destination_label_trimmer = create_modern_label(trimmer_frame, "Destination: Not selected")
+destination_label_trimmer.grid(row=2, column=1, pady=10, padx=20, sticky="w")
 
-Button(trimmer_frame, text="Select Destination Folder", command=select_destination_directory_trimmer).grid(row=destination_directory_order, column=0, pady=5, padx=10)
-destination_label_trimmer = Label(trimmer_frame, text="Destination: Not selected", width=35)
-destination_label_trimmer.grid(row=destination_directory_order, column=1)
+trim_length_frame = ttk.Frame(trimmer_frame, style="TFrame")
+trim_length_frame.grid(row=3, column=0, columnspan=2, pady=10, padx=20, sticky="ew")
+create_modern_label(trim_length_frame, "Utterance Length (s):").pack(side=tk.LEFT, padx=(0, 10))
+utterance_length_var_trim = tk.StringVar(value="3")
+ttk.Entry(trim_length_frame, textvariable=utterance_length_var_trim, width=10).pack(side=tk.LEFT)
 
-Label(trimmer_frame, text="Utterance Length (s):").grid(row=input_field_order, column=0)
-utterance_length_var = StringVar(value="3")
-Entry(trimmer_frame, textvariable=utterance_length_var).grid(row=input_field_order, column=1)
+progress_bar_trimmer = ttk.Progressbar(trimmer_frame, length=600, mode="determinate", style="TProgressbar")
+progress_bar_trimmer.grid(row=4, column=0, columnspan=2, pady=(20, 10), padx=20, sticky="ew")
 
-progress_bar_trimmer = ttk.Progressbar(trimmer_frame, length=progress_bar_length, mode="determinate")
-progress_bar_trimmer.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
-
-Button(trimmer_frame, text="Trim", command=trim_utterances, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, columnspan=2, pady=10)
+create_modern_button(trimmer_frame, "Trim", trim_utterances).grid(
+    row=5, column=0, columnspan=2, pady=20)
 
 # Noise Reduction Tab
-noise_reduction_frame = ttk.Frame(notebook)
+noise_reduction_frame = BaseFrame(notebook, "Noise Reduction")
 notebook.add(noise_reduction_frame, text="Noise Reduction")
 
-Label(noise_reduction_frame, text="Noise Reduction", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
+create_modern_button(noise_reduction_frame, "Select Source Folder", select_source_directory_noise_reduction).grid(
+    row=1, column=0, pady=10, padx=20, sticky="w")
+source_label_noise_reduction = create_modern_label(noise_reduction_frame, "Source Folder: Not selected")
+source_label_noise_reduction.grid(row=1, column=1, pady=10, padx=20, sticky="w")
 
-Button(noise_reduction_frame, text="Select Source Folder", command=select_source_directory_noise_reduction).grid(row=source_directory_order, column=0, pady=5, padx=10)
-source_label_noise_reduction = Label(noise_reduction_frame, text="Source Folder: Not selected")
-source_label_noise_reduction.grid(row=source_directory_order, column=1)
+create_modern_button(noise_reduction_frame, "Select Destination Folder", select_destination_directory_noise_reduction).grid(
+    row=2, column=0, pady=10, padx=20, sticky="w")
+destination_label_noise_reduction = create_modern_label(noise_reduction_frame, "Destination: Not selected")
+destination_label_noise_reduction.grid(row=2, column=1, pady=10, padx=20, sticky="w")
 
-Button(noise_reduction_frame, text="Select Destination Folder", command=select_destination_directory_noise_reduction).grid(row=destination_directory_order, column=0, pady=5, padx=10)
-destination_label_noise_reduction = Label(noise_reduction_frame, text="Destination: Not selected", width=35)
-destination_label_noise_reduction.grid(row=destination_directory_order, column=1)
-Label(noise_reduction_frame, text="").grid(row=input_field_order, column=0)
+progress_bar_noise_reduction = ttk.Progressbar(noise_reduction_frame, length=600, mode="determinate", style="TProgressbar")
+progress_bar_noise_reduction.grid(row=4, column=0, columnspan=2, pady=(20, 10), padx=20, sticky="ew")
 
-progress_bar_noise_reduction = ttk.Progressbar(noise_reduction_frame, length=progress_bar_length, mode="determinate")
-progress_bar_noise_reduction.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
-
-Button(noise_reduction_frame, text="Reduce Noise", command=reduce_noise, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, columnspan=2, pady=10)
+create_modern_button(noise_reduction_frame, "Reduce Noise", reduce_noise).grid(
+    row=5, column=0, columnspan=2, pady=20)
 
 # Audio Normalization Tab
-audio_normalization_frame = ttk.Frame(notebook)
+audio_normalization_frame = BaseFrame(notebook, "Audio Normalization")
 notebook.add(audio_normalization_frame, text="Audio Normalization")
 
-Label(audio_normalization_frame, text="Audio Normalization", font=("Arial", 16)).grid(row=tab_title_order, column=0, columnspan=2, pady=10)
+create_modern_button(audio_normalization_frame, "Select Source Folder", select_source_directory_audio_normalization).grid(
+    row=1, column=0, pady=10, padx=20, sticky="w")
+source_label_audio_normalization = create_modern_label(audio_normalization_frame, "Source Folder: Not selected")
+source_label_audio_normalization.grid(row=1, column=1, pady=10, padx=20, sticky="w")
 
-Button(audio_normalization_frame, text="Select Source Folder", command=select_source_directory_audio_normalization).grid(row=source_directory_order, column=0, pady=5, padx=10)
-source_label_audio_normalization = Label(audio_normalization_frame, text="Source Folder: Not selected", width=35)
-source_label_audio_normalization.grid(row=source_directory_order, column=1)
+create_modern_button(audio_normalization_frame, "Select Destination Folder", select_destination_directory_audio_normalization).grid(
+    row=2, column=0, pady=10, padx=20, sticky="w")
+destination_label_audio_normalization = create_modern_label(audio_normalization_frame, "Destination: Not selected")
+destination_label_audio_normalization.grid(row=2, column=1, pady=10, padx=20, sticky="w")
 
-Button(audio_normalization_frame, text="Select Destination Folder", command=select_destination_directory_audio_normalization).grid(row=destination_directory_order, column=0, pady=5, padx=10)
-destination_label_audio_normalization = Label(audio_normalization_frame, text="Destination: Not selected", width=35)
-destination_label_audio_normalization.grid(row=destination_directory_order, column=1)
-Label(audio_normalization_frame, text="").grid(row=input_field_order, column=0)
+progress_bar_audio_normalization = ttk.Progressbar(audio_normalization_frame, length=600, mode="determinate", style="TProgressbar")
+progress_bar_audio_normalization.grid(row=4, column=0, columnspan=2, pady=(20, 10), padx=20, sticky="ew")
 
-progress_bar_audio_normalization = ttk.Progressbar(audio_normalization_frame, length=progress_bar_length, mode="determinate")
-progress_bar_audio_normalization.grid(row=progress_bar_order, column=0, columnspan=2, pady=10, padx=10)
+create_modern_button(audio_normalization_frame, "Normalize Audio", normalize_audio_files).grid(
+    row=5, column=0, columnspan=2, pady=20)
 
-Button(audio_normalization_frame, text="Normalize Audio", command=normalize_audio_files, bg=button_bg_color, fg=button_fg_color, width=15).grid(row=button_order, column=0, columnspan=2, pady=10)
+# Center the window on screen
+root.update_idletasks()
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+x = (screen_width - ModernTheme.WINDOW_WIDTH) // 2
+y = (screen_height - ModernTheme.WINDOW_HEIGHT) // 2
+root.geometry(f"{ModernTheme.WINDOW_WIDTH}x{ModernTheme.WINDOW_HEIGHT}+{x}+{y}")
 
 root.mainloop()
