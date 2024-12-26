@@ -19,6 +19,7 @@ class EnrollmentTab(ttk.Frame):
         self.mfcc_features = tk.StringVar(value="22")  # Default value
         self.use_dmfcc = tk.BooleanVar()
         self.use_ddmfcc = tk.BooleanVar()
+        self.n_components = tk.IntVar(value=5)
         self.processing = False
         self.queue = Queue()
         
@@ -63,6 +64,12 @@ class EnrollmentTab(ttk.Frame):
         ttk.Label(utterances_frame, text="Number of Utterances:").pack(side='left', padx=5)
         ttk.Entry(utterances_frame, textvariable=self.num_utterances, width=10).pack(side='left', padx=5)
         
+        # MFCC Components
+        mfcc_frame = ttk.Frame(params_frame)
+        mfcc_frame.pack(fill='x', pady=2)
+        ttk.Label(mfcc_frame, text="MFCC Components:").pack(side='left', padx=5)
+        ttk.Entry(mfcc_frame, textvariable=self.n_components, width=10).pack(side='left', padx=5)
+
         # MFCC Features
         mfcc_frame = ttk.Frame(params_frame)
         mfcc_frame.pack(fill='x', pady=2)
@@ -142,9 +149,10 @@ class EnrollmentTab(ttk.Frame):
         else:
             raise Exception("No valid audio files found")
     
-    def train_gmm(self, features, n_components=16):
+    def train_gmm(self, features, covariance_type='diag'):
+        # To be revesited for covariance_type=full (could yield higher accuracy with larger datasets)
         """Train a GMM model on the extracted features."""
-        gmm = GaussianMixture(n_components=n_components, covariance_type='full', random_state=42)
+        gmm = GaussianMixture(n_components=self.n_components.get(), covariance_type=covariance_type, random_state=42)
         gmm.fit(features)
         return gmm
     

@@ -32,6 +32,7 @@ class TrainOnFlyTab(ttk.Frame):
         
         # MFCC parameters
         self.mfcc_features = tk.StringVar(value="22")
+        self.n_components = tk.IntVar(value=5)
         self.use_dmfcc = tk.BooleanVar()
         self.use_ddmfcc = tk.BooleanVar()
         
@@ -100,8 +101,14 @@ class TrainOnFlyTab(ttk.Frame):
         
         # MFCC Options (initially hidden)
         self.mfcc_frame = ttk.Frame(enroll_frame)
+
+        # MFCC Components
+        ttk.Label(self.mfcc_frame, text="MFCC Components:").pack(side='left', padx=5)
+        ttk.Entry(self.mfcc_frame, textvariable=self.n_components, width=10).pack(side='left', padx=5)
+        # MFCC Features
         ttk.Label(self.mfcc_frame, text="MFCC Features:").pack(side='left', padx=5)
         ttk.Entry(self.mfcc_frame, textvariable=self.mfcc_features, width=10).pack(side='left', padx=5)
+        # Use DMFCC and DDMFCC
         ttk.Checkbutton(self.mfcc_frame, text="Use DMFCC", variable=self.use_dmfcc).pack(side='left', padx=5)
         ttk.Checkbutton(self.mfcc_frame, text="Use DDMFCC", variable=self.use_ddmfcc).pack(side='left', padx=5)
         
@@ -263,9 +270,9 @@ class TrainOnFlyTab(ttk.Frame):
         except Exception as e:
             raise Exception(f"Error processing {audio_path}: {str(e)}")
     
-    def train_gmm(self, features, n_components=16):
+    def train_gmm(self, features, covariance_type='diag'):
         """Train a GMM model on the extracted features."""
-        gmm = GaussianMixture(n_components=n_components, covariance_type='full', random_state=42)
+        gmm = GaussianMixture(n_components=self.n_components, covariance_type=covariance_type, random_state=42)
         gmm.fit(features)
         return gmm
 
