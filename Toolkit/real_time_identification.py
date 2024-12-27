@@ -25,6 +25,7 @@ class RealTimeIdentificationTab(ttk.Frame):
         self.frame_length = int(0.025 * self.sample_rate)  # 25ms frames
         self.hop_length = int(0.010 * self.sample_rate)    # 10ms hop
         self.buffer_duration = 3  # seconds
+        self.step_size = 0.1  # seconds
         self.audio_buffer = np.zeros(self.sample_rate * self.buffer_duration)
         
         # Feature extraction settings
@@ -33,7 +34,7 @@ class RealTimeIdentificationTab(ttk.Frame):
         self.use_ddmfcc = tk.BooleanVar(value=False)
         
         # Audio preprocessing settings
-        self.reduce_noise = tk.BooleanVar(value=False)
+        self.reduce_noise = tk.BooleanVar(value=True)
         self.normalize_audio = tk.BooleanVar(value=True)
         
         self.setup_ui()
@@ -233,9 +234,9 @@ class RealTimeIdentificationTab(ttk.Frame):
             with sd.InputStream(callback=audio_callback,
                               channels=1,
                               samplerate=self.sample_rate,
-                              blocksize=int(self.sample_rate * 0.1)):
+                              blocksize=int(self.sample_rate * self.step_size)):
                 while self.is_recording:
-                    time.sleep(0.1)
+                    time.sleep(self.step_size)
         except Exception as e:
             print(f"Error in audio recording: {str(e)}")
             self.stop_recording()

@@ -21,7 +21,7 @@ class TrainOnFlyTab(ttk.Frame):
         self.speaker_name = tk.StringVar()
         self.sampling_rate = tk.StringVar(value="16000")
         self.remove_silence = tk.BooleanVar()
-        self.reduce_noise = tk.BooleanVar()
+        self.reduce_noise = tk.BooleanVar(value=False)
         self.normalize_audio = tk.BooleanVar(value=True)
         self.enroll_speaker = tk.BooleanVar()
         self.models_path = tk.StringVar(value="Speaker Models")
@@ -272,7 +272,7 @@ class TrainOnFlyTab(ttk.Frame):
     
     def train_gmm(self, features, covariance_type='diag'):
         """Train a GMM model on the extracted features."""
-        gmm = GaussianMixture(n_components=self.n_components, covariance_type=covariance_type, random_state=42)
+        gmm = GaussianMixture(n_components=self.n_components.get(), covariance_type=covariance_type, random_state=42)
         gmm.fit(features)
         return gmm
 
